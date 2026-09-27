@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import tyro
 
+import mjlab
 from mjlab.asset_zoo.robots.pupper_v3.pupper_constants import PUPPER_ACTION_SCALE
 from mjlab.tasks.pupper_gait.pupper_gait_env_cfg import (
   GAIT_FREQUENCY,
@@ -108,4 +109,4 @@ def main(
 
 
 if __name__ == "__main__":
-  tyro.cli(main)
+  tyro.cli(main, config=mjlab.TYRO_FLAGS)

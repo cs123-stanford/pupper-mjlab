@@ -45,7 +45,15 @@ def _extract_python_source(cell_source: str) -> str | None:
   # Skip other cell magics (%%bash, %%html, etc.) entirely.
   if lines and lines[0].lstrip().startswith("%%"):
     return None
-  kept = [ln for ln in lines if not ln.lstrip().startswith(("!", "%"))]
+  # Replace shell escapes and line magics with ``pass`` at the same indentation
+  # rather than dropping them, so a block whose body is only shell commands
+  # (``if ...:\n  !git clone ...``) still parses.
+  kept = [
+    ln[: len(ln) - len(ln.lstrip())] + "pass"
+    if ln.lstrip().startswith(("!", "%"))
+    else ln
+    for ln in lines
+  ]
   return "\n".join(kept)
 
 

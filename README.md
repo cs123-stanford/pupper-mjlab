@@ -46,6 +46,7 @@ task from scratch (using the cartpole task as the example).
 | `Mjlab-StableGait-Flat-Pupper-v3` / `-Bumpy-` | Velocity tracking that shapes a triangular trot for fore/aft and a stepping-in-place cycle for turning and side-stepping; the Bumpy variant adds rough ground. |
 | `Mjlab-MixedGaits-Flat-Pupper-v3` / `-Bumpy-` | Per-command reference switching with a separate fast branch above 0.5 m/s. What plays in the fast branch is up to you — see the optional reference lab. |
 | `Mjlab-Mystery-Flat-Pupper-v3` / `-Bumpy-` | ??? |
+| `Mjlab-Tracking-Flat-Pupper-v3` | Tricks: tracks one reference motion (root pose + joints, BeyondMimic-style) with no velocity command. Design motions and replay them in sim first; see `src/mjlab/tasks/tracking/config/pupper/README.md`. |
 
 **The lift gait is yours**: only the trot reference ships
 (`src/mjlab/tasks/pupper_gait/mdp/gait_reference.py`). StableGait also needs a
@@ -100,6 +101,9 @@ Two things make these policies survive the real robot:
   the gait exporter and its NumPy parity mirrors.
 - `src/mjlab/scripts/export_pupper_policy.py` — the `export-pupper-policy`
   entry point.
+- `src/mjlab/tasks/tracking/config/pupper/` — Pupper tricks: motion design
+  (`motion_design.py`, `tricks/sit.py`), physics replay (`play_motion.py`),
+  and the tracking task config.
 - `src/mjlab/tasks/{velocity,tracking,manipulation,cartpole}/` — upstream
   example tasks (G1/Go1/YAM); the cartpole is the create-a-task tutorial.
 - `tests/` — `test_pupper*.py` cover export parity and latency modeling.

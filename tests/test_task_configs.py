@@ -79,7 +79,12 @@ def test_training_mode_observation_corruption_enabled(all_task_ids: list[str]) -
       f"Training task {task_id} policy observation is not ObservationGroupCfg"
     )
 
-    assert policy_obs.enable_corruption, (
+    # The Pupper tasks bake per-subgroup sensor noise into their observation term
+    # (params add_noise=True) and turn the generic corruption off; either counts.
+    noise_in_term = any(
+      (term.params or {}).get("add_noise") for term in policy_obs.terms.values()
+    )
+    assert policy_obs.enable_corruption or noise_in_term, (
       f"Training task {task_id} has enable_corruption=False, expected True"
     )
 

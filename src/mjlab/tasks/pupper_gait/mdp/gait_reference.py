@@ -383,7 +383,7 @@ def build_joint_reference_table(n_samples: int = 100, gait: str = "trot") -> np.
   x_shift = _GAIT_X_SHIFT.get(gait, (0.0, 0.0, 0.0, 0.0))
   y_shift = _GAIT_Y_SHIFT.get(gait, (0.0, 0.0, 0.0, 0.0))
   table = np.zeros((n_samples, 12))
-  guesses = [np.zeros(3) for _ in range(4)]
+  guesses: list[np.ndarray] = [np.zeros(3) for _ in range(4)]
   for i in range(n_samples):
     t = i / n_samples
     for leg in range(4):
