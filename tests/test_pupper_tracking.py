@@ -70,3 +70,40 @@ def test_csv_round_trip(sit_motion, tmp_path):
   np.testing.assert_allclose(
     robot["leg_back_l_3"], sit_motion.joint_pos[:, 11], atol=1e-5
   )
+
+
+def _still(frames: int, offset: float = 0.0) -> md.Motion:
+  """A motion that holds the default stand (plus a joint offset) for some frames."""
+  joints = np.tile(np.array(DEFAULT_POSE) + offset, (frames, 1))
+  root = np.tile([0.0, 0.0, md.STAND_HEIGHT], (frames, 1))
+  quat = np.tile([1.0, 0.0, 0.0, 0.0], (frames, 1))
+  return md.Motion(fps=50.0, root_pos=root, root_quat=quat, joint_pos=joints)
+
+
+def test_concat_clips_shares_boundary_frames_and_points_at_first_use(tmp_path):
+  clips = [
+    md.Clip("a", _still(10), next="idle"),
+    md.Clip("idle", _still(5), loop=True),
+    md.Clip("b", _still(8), next="idle"),
+  ]
+  library = md.concat_clips(clips, order=["a", "idle", "b", "idle"])
+  # Each later clip drops its first frame, which equals the previous clip's last.
+  assert len(library.root_pos) == 10 + 4 + 7 + 4
+  table = {c["name"]: c for c in library.clips}
+  assert [c["name"] for c in library.clips] == ["a", "idle", "b"]
+  assert (table["a"]["start"], table["a"]["end"]) == (0, 10)
+  assert (table["idle"]["start"], table["idle"]["end"]) == (9, 14)
+  assert (table["b"]["start"], table["b"]["end"]) == (13, 21)
+  assert table["idle"]["loop"] and table["b"]["next"] == "idle"
+
+  path = library.save_npz(tmp_path / "library.npz")
+  assert md.read_clips(path) == library.clips
+
+
+def test_concat_clips_refuses_a_pose_jump():
+  with pytest.raises(ValueError, match="rad away"):
+    md.concat_clips([md.Clip("a", _still(5)), md.Clip("b", _still(5, offset=0.2))])
+
+
+def test_single_motion_npz_has_no_clips(sit_motion, tmp_path):
+  assert md.read_clips(sit_motion.save_npz(tmp_path / "sit.npz")) == []

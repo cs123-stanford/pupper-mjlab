@@ -79,10 +79,9 @@ def run_train(task_id: str, cfg: TrainConfig, log_dir: Path) -> None:
     motion_cmd = cfg.env.commands["motion"]
     assert isinstance(motion_cmd, MotionCommandCfg)
 
-    # Check if motion_file is already set (e.g., via CLI --env.commands.motion.motion-file).
-    if motion_cmd.motion_file and Path(motion_cmd.motion_file).exists():
-      print(f"[INFO] Using local motion file: {motion_cmd.motion_file}")
-    elif cfg.registry_name:
+    # An explicit --registry-name wins over a task's default local motion file
+    # (the Pupper tracking task defaults to its worked example).
+    if cfg.registry_name:
       # Download from WandB registry.
       registry_name = cast(str, cfg.registry_name)
       if ":" not in registry_name:
@@ -92,6 +91,10 @@ def run_train(task_id: str, cfg: TrainConfig, log_dir: Path) -> None:
       api = wandb.Api()
       artifact = api.artifact(registry_name)
       motion_cmd.motion_file = str(Path(artifact.download()) / "motion.npz")
+      print(f"[INFO] Using motion {registry_name}: {motion_cmd.motion_file}")
+    elif motion_cmd.motion_file and Path(motion_cmd.motion_file).exists():
+      # Set by the task or via CLI --env.commands.motion.motion-file.
+      print(f"[INFO] Using local motion file: {motion_cmd.motion_file}")
     else:
       raise ValueError(
         "For tracking tasks, provide either:\n"

@@ -35,6 +35,9 @@ uv run play Mjlab-VelocityFS-Flat-Pupper-v3 --agent zero    # or --agent random
 
 The course notebook is `notebooks/CS123_Pupper_mjlab.ipynb` — it walks the
 whole loop (train, evaluate, export, deploy) and runs on Colab.
+`notebooks/CS123_Pupper_Tricks.ipynb` does the same for tricks: design a
+motion, replay it with physics, move it through W&B, train a tracking policy,
+and fetch it on the robot.
 `notebooks/create_new_task.ipynb` is the upstream tutorial for building a new
 task from scratch (using the cartpole task as the example).
 

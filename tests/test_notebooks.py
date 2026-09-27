@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import ast
 import importlib
+import importlib.util
 import json
 import re
 from pathlib import Path
@@ -124,7 +125,8 @@ def test_notebook_mjlab_imports_resolve(notebook_path: Path) -> None:
         f"cell {cell_idx}: `from {module} import {name}` failed to import module: {e}"
       )
       continue
-    if not hasattr(mod, name):
+    if not hasattr(mod, name) and importlib.util.find_spec(f"{module}.{name}") is None:
+      # `from package import submodule` is fine too, as in Python itself.
       failures.append(
         f"cell {cell_idx}: `from {module} import {name}` — "
         f"'{name}' is not exposed by '{module}'"

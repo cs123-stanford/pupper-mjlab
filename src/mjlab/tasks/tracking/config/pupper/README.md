@@ -70,6 +70,21 @@ translucent ghost of the reference. `--no-physics` shows the reference alone.
 
 ## 3. Train it (when replay isn't enough)
 
+The easy way to get a motion from where you design it (a laptop, Colab) to
+where you train it and on to the robot is Weights & Biases. Upload the motion
+once, as an artifact; training pulls it by name:
+
+```bash
+uv run python -m mjlab.tasks.tracking.config.pupper.upload_motion \
+    src/mjlab/tasks/tracking/config/pupper/tricks/my_trick.npz --name my_trick
+uv run train Mjlab-Tracking-Flat-Pupper-v3 --env.scene.num-envs 4096 \
+    --registry-name <entity>/mjlab/my_trick
+```
+
+The upload includes the robot CSV (`my_trick_robot.csv`, from
+`save_robot_csv`) when it sits next to the npz, so the robot can also fetch the
+motion for plain replay. A local file works too:
+
 ```bash
 uv run train Mjlab-Tracking-Flat-Pupper-v3 --env.scene.num-envs 4096 \
     --env.commands.motion.motion-file src/mjlab/tasks/tracking/config/pupper/tricks/my_trick.npz
@@ -97,7 +112,17 @@ motion. Physics matches the walking tasks, with one addition: the torso, upper
 legs and lower legs have convex-hull collision shapes (ground contact only), so
 tricks can sit, kneel and lie down.
 
-## 4. Export it for the robot
+## 4. Get it onto the robot
+
+Training uploads the robot's trick policy to the W&B run as `policy.json` at
+every checkpoint and on Ctrl+C; the log prints the command to run on the robot,
+in the gemini-pupper repo:
+
+```bash
+python3 robot/get_trick.py <entity>/mjlab/<run-id> --name my_trick
+```
+
+To export a local checkpoint by hand instead:
 
 ```bash
 uv run python -m mjlab.tasks.tracking.config.pupper.export_trick \
@@ -110,6 +135,36 @@ The JSON carries the network, its observation layout and the reference motion
 itself; the robot's controller (pupper_gait_deploy) plays the motion while the
 policy runs. The exporter checks that the exported network reproduces the
 trained one before writing the file.
+
+## Clip tricks: several moves, one policy
+
+Some tricks are more than one fixed motion: a pose the robot holds for as long
+as you like, with moves it can do from that pose on request. Design each piece
+as its own motion and join them with `motion_design.concat_clips`:
+
+```python
+library = md.concat_clips(
+    [
+        md.Clip("get_into_pose", intro, next="hold"),   # plays first
+        md.Clip("hold", hold, loop=True),               # repeats until asked
+        md.Clip("move_a", move_a, next="hold"),         # returns to the hold
+        md.Clip("leave", leave),                        # ends; holds its last frame
+    ],
+    # training sequence: every clip at least once, with the hold in between
+    order=["get_into_pose", "hold", "move_a", "hold", "leave"],
+)
+library.save_npz("tricks/my_clips.npz")
+```
+
+Clips must meet at matching poses (the join refuses a jump of more than
+0.05 rad), so the robot can go from the end of any clip to the start of the
+next. One policy trains on the whole joined motion; the npz and the exported
+JSON carry a clip table. On the robot, the controller plays the first clip,
+follows each clip's `next`, loops a looping clip, and switches to a requested
+clip at the next clip boundary (topic `/trick_<name>/clip`; progress on
+`/trick_<name>/clip_status`). In gemini-pupper, a trick's `trick.yaml` names
+the clips Gemini may request (`actions`) and the one that returns to standing
+(`exit_clip`).
 
 ## Tips for designing with a coding agent
 

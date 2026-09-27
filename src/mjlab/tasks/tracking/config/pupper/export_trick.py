@@ -87,6 +87,13 @@ def export_trick_policy_from_env(
     "frames": frames,
     "duration_s": frames / fps,
   }
+  # Clip libraries (motion_design.concat_clips) carry their clip table, which the
+  # robot's controller uses to play one clip at a time on request.
+  from mjlab.tasks.tracking.config.pupper.motion_design import read_clips
+
+  clips = read_clips(cmd.cfg.motion_file)
+  if clips:
+    policy["trick"]["clips"] = clips
   policy["motion"] = {
     "joint_pos": rows(motion.joint_pos),
     "joint_vel": rows(motion.joint_vel),

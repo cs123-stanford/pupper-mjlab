@@ -282,6 +282,9 @@ class Motion:
   root_quat: np.ndarray  # (T, 4) w, x, y, z
   joint_pos: np.ndarray  # (T, 12) JOINT_NAMES order
   report: dict = dataclasses.field(default_factory=dict)
+  # Optional clip table (see concat_clips): name, start/end frame (end exclusive),
+  # loop, and the clip that plays next by default.
+  clips: list[dict] = dataclasses.field(default_factory=list)
 
   @property
   def duration(self) -> float:
@@ -342,6 +345,7 @@ class Motion:
       body_lin_vel_w=body_lin.astype(np.float32),
       body_ang_vel_w=body_ang.astype(np.float32),
       body_names=np.array(k.body_names),
+      **clip_arrays(self.clips),
     )
     return path
 
@@ -476,6 +480,108 @@ def build_motion(
   motion.report = check_motion(motion)
   motion.report["max_ik_error_m"] = round(worst_err, 4)
   return motion
+
+
+@dataclasses.dataclass
+class Clip:
+  """One clip of a trick. ``next`` names the clip that plays when this one ends
+  (None: hold the last frame); a looping clip repeats until another is requested."""
+
+  name: str
+  motion: Motion
+  loop: bool = False
+  next: str | None = None
+
+
+def concat_clips(clips: list[Clip], order: list[str] | None = None) -> Motion:
+  """Join clips into one continuous motion for training, with a clip table.
+
+  Every clip must start and end at poses that match the clips it can follow and
+  precede (usually one shared pose, like "sitting"), so the robot can jump from
+  the end of any clip to the start of the next without a discontinuity. The
+  tracking policy trains on the whole joined motion; on the robot the controller
+  plays one clip at a time and switches clips at clip boundaries.
+
+  ``order`` is the training sequence (names may repeat, e.g. an idle clip between
+  every action); by default each clip once, in the given order. The clip table
+  points at each clip's first occurrence.
+  """
+  by_name = {c.name: c for c in clips}
+  order = order or [c.name for c in clips]
+  fps = clips[0].motion.fps
+  parts, table, frame = [], {}, 0
+  for i, name in enumerate(order):
+    m = by_name[name].motion
+    if m.fps != fps:
+      raise ValueError(f"clip {name} is at {m.fps} fps, expected {fps}")
+    if i > 0:
+      prev = by_name[order[i - 1]].motion
+      gap = np.abs(prev.joint_pos[-1] - m.joint_pos[0]).max()
+      if gap > 0.05:
+        raise ValueError(
+          f"{order[i - 1]} ends {gap:.2f} rad away from where {name} starts"
+        )
+    # Frames shared at a boundary are kept once: drop this clip's first frame.
+    skip = 1 if i > 0 else 0
+    start = frame - skip
+    n = len(m.root_pos)
+    if name not in table:
+      c = by_name[name]
+      table[name] = {
+        "name": name,
+        "start": max(start, 0),
+        "end": max(start, 0) + n,
+        "loop": c.loop,
+        "next": c.next,
+      }
+    parts.append((m.root_pos[skip:], m.root_quat[skip:], m.joint_pos[skip:]))
+    frame += n - skip
+  motion = Motion(
+    fps=fps,
+    root_pos=np.concatenate([p[0] for p in parts]),
+    root_quat=np.concatenate([p[1] for p in parts]),
+    joint_pos=np.concatenate([p[2] for p in parts]),
+    clips=[table[c.name] for c in clips],
+  )
+  motion.report = check_motion(motion)
+  return motion
+
+
+def clip_arrays(clips: list[dict]) -> dict:
+  """The clip table as npz arrays (empty when there are no clips)."""
+  if not clips:
+    return {}
+  return {
+    "clip_names": np.array([c["name"] for c in clips]),
+    "clip_starts": np.array([c["start"] for c in clips]),
+    "clip_ends": np.array([c["end"] for c in clips]),
+    "clip_loops": np.array([bool(c["loop"]) for c in clips]),
+    "clip_nexts": np.array([c["next"] or "" for c in clips]),
+  }
+
+
+def read_clips(npz_path) -> list[dict]:
+  """The clip table stored in a motion npz, or [] for a single-clip motion."""
+  data = np.load(npz_path)
+  if "clip_names" not in data:
+    return []
+  return [
+    {
+      "name": str(n),
+      "start": int(s),
+      "end": int(e),
+      "loop": bool(lp),
+      "next": str(nx) or None,
+    }
+    for n, s, e, lp, nx in zip(
+      data["clip_names"],
+      data["clip_starts"],
+      data["clip_ends"],
+      data["clip_loops"],
+      data["clip_nexts"],
+      strict=True,
+    )
+  ]
 
 
 def check_motion(motion: Motion) -> dict:
