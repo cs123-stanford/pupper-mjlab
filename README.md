@@ -41,6 +41,10 @@ and fetch it on the robot.
 `notebooks/CS123_Pupper_Sit_Stay_Shake.ipynb` is lab 6's guided version:
 stitch provided motions into a clip library (sit, stay, shake either paw,
 stand) and train one policy on it.
+`notebooks/CS123_Pupper_UniMate.ipynb` makes the reference motion from a
+sentence instead: UniMate (text-to-motion for any skeleton) animates Pupper's
+legs, IK fits the robot to it, and it trains like any other trick
+(`src/mjlab/tasks/tracking/config/pupper/unimate/`; needs a big GPU, G4 on Colab).
 `notebooks/create_new_task.ipynb` is the upstream tutorial for building a new
 task from scratch (using the cartpole task as the example).
 

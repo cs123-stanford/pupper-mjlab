@@ -156,7 +156,13 @@ ignore = ["B011"]
 pythonVersion = "3.10"
 venvPath = "."
 venv = ".venv"
-ignore = ["./typings", "./src/mjlab/utils/lab_api", "./docs"]
+ignore = [
+  "./typings",
+  "./src/mjlab/utils/lab_api",
+  "./docs",
+  # Runs in UniMate's own environment (see unimate/install.sh), not mjlab's.
+  "./src/mjlab/tasks/tracking/config/pupper/unimate/worker.py",
+]
 stubPath = "typings"
 
 [tool.ty.environment]
@@ -164,7 +170,12 @@ extra-paths = ["typings"]
 
 [tool.ty.src]
 include = ["src", "tests"]
-exclude = ["src/mjlab/utils/lab_api", "typings"]
+exclude = [
+  "src/mjlab/utils/lab_api",
+  "typings",
+  # Runs in UniMate's own environment (see unimate/install.sh), not mjlab's.
+  "src/mjlab/tasks/tracking/config/pupper/unimate/worker.py",
+]
 
 [tool.pytest.ini_options]
 markers = [
