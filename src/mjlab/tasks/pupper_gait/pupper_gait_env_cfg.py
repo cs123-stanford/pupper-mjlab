@@ -586,6 +586,9 @@ def pupper_velocity_fs_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
 def _make_bumpy(cfg: ManagerBasedRlEnvCfg) -> ManagerBasedRlEnvCfg:
   """Swap in the Perlin bump field and match the flat tasks' critic."""
   assert cfg.scene.terrain is not None
+  # The flat base config pins terrain_type="plane", which ignores the generator
+  # entirely -- without this the "bumpy" tasks train and play on a flat plane.
+  cfg.scene.terrain.terrain_type = "generator"
   cfg.scene.terrain.terrain_generator = BUMPY_TERRAINS_CFG
   # Bumpy-only, no difficulty progression: patches are random (see cfg above).
   cfg.curriculum.pop("terrain_levels", None)
