@@ -15,7 +15,7 @@ Run (local native viewer):
     uv run python -m mjlab.tasks.pupper_gait.visualize_reference --gait lift
 
 Colab / headless (viser share URL):
-    uv run python -m mjlab.tasks.pupper_gait.visualize_reference --viser --share
+    uv run python -m mjlab.tasks.pupper_gait.visualize_reference --viser True --share True
 """
 
 from __future__ import annotations
