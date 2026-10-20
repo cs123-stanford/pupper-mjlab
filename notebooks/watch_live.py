@@ -14,7 +14,10 @@ wiring, with two lab-specific behaviors:
 
 Usage:
   python notebooks/watch_live.py <TASK> [--url-file PATH] [--log-root DIR]
-      [--any-checkpoint]
+      [--any-checkpoint] [--motion-file MOTION.npz]
+
+A tracking task (a trick) also needs the motion it is trained on: pass it with
+--motion-file.
 """
 
 import argparse
@@ -59,6 +62,12 @@ def main() -> None:
     help="Latch onto the newest existing checkpoint instead of waiting for a "
     "fresh one (useful outside the launch-then-train notebook flow).",
   )
+  parser.add_argument(
+    "--motion-file",
+    type=Path,
+    default=None,
+    help="For a tracking task (a trick): the motion .npz it trains on.",
+  )
   args = parser.parse_args()
   start_time = 0.0 if args.any_checkpoint else time.time()
 
@@ -81,6 +90,8 @@ def main() -> None:
   device = "cuda:0" if torch.cuda.is_available() else "cpu"
   env_cfg = load_env_cfg(args.task, play=True)
   env_cfg.scene.num_envs = 1
+  if args.motion_file is not None:  # a trick: show it tracking its own motion
+    env_cfg.commands["motion"].motion_file = str(args.motion_file.resolve())
   agent_cfg = load_rl_cfg(args.task)
   env = RslRlVecEnvWrapper(
     ManagerBasedRlEnv(cfg=env_cfg, device=device),
