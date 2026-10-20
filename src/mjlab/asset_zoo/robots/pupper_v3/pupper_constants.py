@@ -52,6 +52,19 @@ DEFAULT_POSE: tuple[float, ...] = (
   -0.26, 0.0, 0.52,
 )  # fmt: skip
 
+# Spider stance, from the monorepo's recorded spider trick (its pose 3 s in,
+# every foot down, left/right averaged): legs splayed wide with the knees up, the
+# torso 1 cm above the ground (the recording rests it on the ground). The back
+# feet sit 2 cm further back than recorded, which lifts the back thighs 2.3 cm
+# off the ground. Each foot is on the ground (motion_design's leg IK).
+SPIDER_POSE: tuple[float, ...] = (
+  -1.037, 1.076, 0.709,
+  1.037, -1.076, -0.709,
+  -0.414, 1.14, -0.337,
+  0.414, -1.14, 0.337,
+)  # fmt: skip
+SPIDER_HEIGHT: float = 0.042  # base_link height in the spider stance, feet down
+
 FOOT_SITE_NAMES: tuple[str, ...] = (
   "leg_front_r_3_foot_site",
   "leg_front_l_3_foot_site",
@@ -126,6 +139,12 @@ HOME_KEYFRAME = EntityCfg.InitialStateCfg(
   joint_pos={
     name: angle for name, angle in zip(JOINT_NAMES, DEFAULT_POSE, strict=True)
   },
+  joint_vel={".*": 0.0},
+)
+
+SPIDER_KEYFRAME = EntityCfg.InitialStateCfg(
+  pos=(0.0, 0.0, SPIDER_HEIGHT + 0.02),
+  joint_pos={name: angle for name, angle in zip(JOINT_NAMES, SPIDER_POSE, strict=True)},
   joint_vel={".*": 0.0},
 )
 

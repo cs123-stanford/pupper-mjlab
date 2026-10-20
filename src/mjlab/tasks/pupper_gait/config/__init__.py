@@ -6,6 +6,7 @@ from mjlab.tasks.pupper_gait.mystery_env_cfg import (
 from mjlab.tasks.pupper_gait.pupper_gait_env_cfg import (
   pupper_mixed_gaits_bumpy_env_cfg,
   pupper_mixed_gaits_env_cfg,
+  pupper_spider_walk_env_cfg,
   pupper_stable_gait_bumpy_env_cfg,
   pupper_stable_gait_env_cfg,
   pupper_velocity_fs_env_cfg,
@@ -29,6 +30,19 @@ register_mjlab_task(
   env_cfg=pupper_velocity_fs_env_cfg(),
   play_env_cfg=pupper_velocity_fs_env_cfg(play=True),
   rl_cfg=_velocity_fs_rl,
+  runner_cls=PupperOnPolicyRunner,
+)
+
+# SpiderWalk: a gait task in the spider stance (torso 1 cm up, legs splayed),
+# tracking a spider trot in place. The walking half of the spider interactive
+# trick; it deploys as its own walking controller.
+_spider_rl = pupper_gait_ppo_runner_cfg()
+_spider_rl.experiment_name = "pupper_spider_walk"
+register_mjlab_task(
+  task_id="Mjlab-SpiderWalk-Flat-Pupper-v3",
+  env_cfg=pupper_spider_walk_env_cfg(),
+  play_env_cfg=pupper_spider_walk_env_cfg(play=True),
+  rl_cfg=_spider_rl,
   runner_cls=PupperOnPolicyRunner,
 )
 

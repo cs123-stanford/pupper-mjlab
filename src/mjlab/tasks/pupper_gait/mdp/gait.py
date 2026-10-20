@@ -156,6 +156,7 @@ def reference_offset(
   gallop_speed: float,
   gallop_freq_mult: float,
   phase_lead_steps: float = 0.0,
+  gait: str = "trot",
 ) -> torch.Tensor:
   """(N, 12) reference joint offset from default: blend * (gait_ref - default).
 
@@ -171,6 +172,9 @@ def reference_offset(
   the *reward* to close the gap between the reference the policy observed and the
   one it is graded against, so it is not required to learn a constant feedforward
   lead. Leave at 0 for the observation, which must stay reproducible on the robot.
+
+  ``gait`` names the table that plays below ``gallop_speed`` (the trot, or e.g.
+  the spider's trot in place); see ``gait_reference.build_joint_reference_table``.
   """
   command = env.command_manager.get_command(command_name)
   assert command is not None
@@ -180,7 +184,7 @@ def reference_offset(
   assert default is not None
 
   return reference_offset_from_tables(
-    _reference_table(env, n_samples, "trot"),
+    _reference_table(env, n_samples, gait),
     _reference_table(env, n_samples, "gallop"),
     (env.episode_length_buf.float() - phase_lead_steps) * env.step_dt,
     command[:, 0],
@@ -202,6 +206,7 @@ def gait_reference_obs(
   n_samples: int = 100,
   gallop_speed: float = 0.5,
   gallop_freq_mult: float = 2.0,
+  gait: str = "trot",
 ) -> torch.Tensor:
   """Reference pose motion the policy tracks (12 = ref_offset from default)."""
   return reference_offset(
@@ -212,6 +217,7 @@ def gait_reference_obs(
     n_samples,
     gallop_speed,
     gallop_freq_mult,
+    gait=gait,
   )
 
 
@@ -227,6 +233,7 @@ def pupper_gait_actor_obs(
   noise: PupperObsNoise = _DEFAULT_NOISE,
   asset_cfg: SceneEntityCfg = _ROBOT,
   imu_latency_distribution: Sequence[float] | None = None,
+  gait: str = "trot",
 ) -> torch.Tensor:
   """36-dim proprio frame (includes velocity command) + 12 reference offset = 48.
 
@@ -237,7 +244,14 @@ def pupper_gait_actor_obs(
     env, command_name, add_noise, noise, asset_cfg, imu_latency_distribution
   )
   ref = reference_offset(
-    env, command_name, frequency, blend_speed, n_samples, gallop_speed, gallop_freq_mult
+    env,
+    command_name,
+    frequency,
+    blend_speed,
+    n_samples,
+    gallop_speed,
+    gallop_freq_mult,
+    gait=gait,
   )
   return torch.cat([base, ref], dim=-1)
 
@@ -292,7 +306,8 @@ class gait_tracking:
     self.gallop_speed = float(cfg.params["gallop_speed"])
     self.gallop_freq_mult = float(cfg.params["gallop_freq_mult"])
     self.phase_lead_steps = float(cfg.params.get("phase_lead_steps", 0.0))
-    _reference_table(env, self.n, "trot")  # warm the caches at construction
+    self.gait = str(cfg.params.get("gait", "trot"))
+    _reference_table(env, self.n, self.gait)  # warm the caches at construction
     _reference_table(env, self.n, "gallop")
 
   def __call__(
@@ -307,9 +322,10 @@ class gait_tracking:
     gallop_speed: float,
     gallop_freq_mult: float,
     phase_lead_steps: float = 0.0,
+    gait: str = "trot",
   ) -> torch.Tensor:
     del std, command_name, frequency, blend_speed, n_samples
-    del gallop_speed, gallop_freq_mult, phase_lead_steps
+    del gallop_speed, gallop_freq_mult, phase_lead_steps, gait
 
     asset: Entity = env.scene[asset_cfg.name]
     default = asset.data.default_joint_pos
@@ -323,6 +339,7 @@ class gait_tracking:
       self.gallop_speed,
       self.gallop_freq_mult,
       self.phase_lead_steps,
+      gait=self.gait,
     )
     reference = (default + offset)[:, self.ids]
 

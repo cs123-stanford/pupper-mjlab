@@ -19,6 +19,7 @@ import numpy as np
 
 from mjlab.asset_zoo.robots.pupper_v3.pupper_constants import (
   JOINT_NAMES,
+  SPIDER_POSE,
   get_spec,
 )
 
@@ -238,6 +239,42 @@ _GAIT_STANCE_Z["lift"] = None  # foot depth below the hip during stance [m]
 _GAIT_SWING_LIFT["lift"] = None  # foot rise above the stance plane in swing [m]
 
 
+# Spider: a trot in place, low and splayed (the SpiderWalk task). Not a foot-space
+# triangle like the gaits above: from the spider stance the front knees are at
+# their limit, so a foot can't simply rise straight up. Instead each leg moves in
+# joint space between the stance and a lifted pose taken from the recorded spider
+# trick, the way the recording lifts it (front legs fold the knee and swing the
+# foot up and out, back legs swing forward and up): 80% of the recorded front
+# lift (3.4 cm) and 50% of the recorded back lift (5.2 cm).
+_SPIDER_LIFTED: tuple[float, ...] = (
+  -0.98, 1.435, -0.112,
+  0.98, -1.435, 0.112,
+  -0.741, 1.387, -0.596,
+  0.741, -1.387, 0.596,
+)  # fmt: skip
+_GAIT_TOUCHDOWN["spider"] = (0.0, 0.5, 0.5, 0.0)  # trot: diagonal pairs together
+_SPIDER_SWING = 1.0 / 3.0  # fraction of the cycle each leg is in the air
+
+
+def _spider_table(n_samples: int) -> np.ndarray:
+  """Spider trot in place: each leg rises toward its lifted pose (a sine bump)
+  over the third of the cycle before its touchdown, and holds the stance
+  otherwise."""
+  stance, lifted = np.array(SPIDER_POSE), np.array(_SPIDER_LIFTED)
+  touchdown = _GAIT_TOUCHDOWN["spider"]
+  assert touchdown is not None
+  table = np.zeros((n_samples, 12))
+  for i in range(n_samples):
+    for leg in range(4):
+      j = slice(3 * leg, 3 * leg + 3)
+      u = (
+        ((i / n_samples - touchdown[leg]) % 1.0) - (1.0 - _SPIDER_SWING)
+      ) / _SPIDER_SWING
+      w = np.sin(np.pi * u) if 0.0 <= u <= 1.0 else 0.0
+      table[i, j] = stance[j] + w * (lifted[j] - stance[j])
+  return table
+
+
 def _base_cycle(
   stride: float | tuple[float, float],
   n_swing: int = 1,
@@ -334,6 +371,10 @@ def build_joint_reference_table(n_samples: int = 100, gait: str = "trot") -> np.
       grid = np.arange(n_samples) / (n_samples - 1)
       src = np.stack([np.interp(grid, xp, src[:, j]) for j in range(12)], axis=1)
     table = _clamp_to_joint_limits(np.ascontiguousarray(src))
+    _TABLE_CACHE[key] = table
+    return table
+  if gait == "spider":
+    table = _clamp_to_joint_limits(_spider_table(n_samples))
     _TABLE_CACHE[key] = table
     return table
   if gait in _CAPTURED_KEYS and _CAPTURED_GAITS_FILE.exists():

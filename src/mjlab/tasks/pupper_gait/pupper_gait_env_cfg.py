@@ -8,9 +8,14 @@ and observes the gait phase so it can sync to it.
 
 from __future__ import annotations
 
+import dataclasses
 import math
 
-from mjlab.asset_zoo.robots.pupper_v3.pupper_constants import PUPPER_DECIMATION
+from mjlab.asset_zoo.robots.pupper_v3.pupper_constants import (
+  PUPPER_DECIMATION,
+  SPIDER_HEIGHT,
+  SPIDER_KEYFRAME,
+)
 from mjlab.envs import ManagerBasedRlEnvCfg
 from mjlab.managers.curriculum_manager import CurriculumTermCfg
 from mjlab.managers.event_manager import EventTermCfg
@@ -87,6 +92,13 @@ GAIT_GALLOP_FREQ_MULT: float = 2
 # reference's no-slip foot travel only implies ~0.2 m/s, so commanding much beyond
 # this sets track_linear_velocity against gait_tracking.
 GAIT_MAX_LIN_VEL_X: float = 0.7
+
+# Spider walk: slow (m/s, m/s, rad/s), on a two-cycles-a-second phase clock: the
+# spider scurries in place, and the command decides where the steps take it.
+SPIDER_MAX_LIN_VEL_X: float = 0.15
+SPIDER_MAX_LIN_VEL_Y: float = 0.1
+SPIDER_MAX_ANG_VEL_Z: float = 0.6
+SPIDER_FREQUENCY: float = 2.0
 
 # Forward command range [m/s] for the dedicated gallop task. Forward-only: the
 # reference is a rotatory footfall order with a lead, so it is not symmetric under
@@ -580,6 +592,47 @@ def pupper_velocity_fs_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     enable_corruption=False,
     history_length=20,
   )
+  return cfg
+
+
+def pupper_spider_walk_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
+  """Walk like the recorded spider: torso 1 cm off the ground, legs splayed.
+
+  A gait task, like the trot tasks: the policy tracks a reference that trots in
+  place in the spider stance (``gait_reference``'s ``spider`` gait, built from
+  the recorded spider trick), and the velocity command decides where those steps
+  take the body. At zero command the reference is the still stance.
+
+  Everything that measures "the pose" (the reset noise, the action offset, the
+  exported ``default_joint_pos``) follows the robot's default pose, so the
+  stance only has to be swapped in. On the robot it runs as its own controller:
+  an interactive trick plays the clip into the stance, hands the legs to this
+  policy, and takes them back to stand up.
+  """
+  cfg = pupper_flat_env_cfg(play=play)
+  robot = cfg.scene.entities["robot"]
+  robot.init_state = dataclasses.replace(SPIDER_KEYFRAME)
+  if "base_height" in cfg.rewards:
+    cfg.rewards["base_height"].params["target_height"] = SPIDER_HEIGHT
+  cfg = _add_gait(
+    cfg,
+    play,
+    lin_vel_x_range=(-SPIDER_MAX_LIN_VEL_X, SPIDER_MAX_LIN_VEL_X),
+    yaw_stages=None,
+  )
+  # Play the spider's table, on its slow clock, everywhere the reference is used:
+  # the actor sees it, the critic sees it, and gait_tracking grades against it.
+  for params in (
+    cfg.observations["actor"].terms["policy"].params,
+    cfg.observations["critic"].terms["gait_reference"].params,
+    cfg.rewards["gait_tracking"].params,
+  ):
+    params["gait"] = "spider"
+    params["frequency"] = SPIDER_FREQUENCY
+  twist = cfg.commands["twist"]
+  assert isinstance(twist, mdp.UniformVelocityCommandCfg)
+  twist.ranges.lin_vel_y = (-SPIDER_MAX_LIN_VEL_Y, SPIDER_MAX_LIN_VEL_Y)
+  twist.ranges.ang_vel_z = (-SPIDER_MAX_ANG_VEL_Z, SPIDER_MAX_ANG_VEL_Z)
   return cfg
 
 

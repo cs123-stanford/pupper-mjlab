@@ -41,6 +41,11 @@ and fetch it on the robot.
 `notebooks/CS123_Pupper_Sit_Stay_Shake.ipynb` is lab 6's guided version:
 stitch provided motions into a clip library (sit, stay, shake either paw,
 stand) and train one policy on it.
+`notebooks/CS123_Pupper_Spider.ipynb` is lab 6's spider, a trick that walks:
+cut the recorded spider into a clip trick (down, idle, up: `tricks/spider.py`),
+then train `Mjlab-SpiderWalk-Flat-Pupper-v3`, a walking policy in the spider
+stance that tracks a spider trot in place (`spider` in
+`mdp/gait_reference.py`), with your own reward weights.
 `notebooks/CS123_Pupper_UniMate.ipynb` makes the reference motion from a
 sentence instead: UniMate (text-to-motion for any skeleton) animates Pupper's
 legs, IK fits the robot to it, and it trains like any other trick
@@ -56,6 +61,7 @@ task from scratch (using the cartpole task as the example).
 | `Mjlab-StableGait-Flat-Pupper-v3` / `-Bumpy-` | Velocity tracking that shapes a triangular trot for fore/aft and a stepping-in-place cycle for turning and side-stepping; the Bumpy variant adds rough ground. |
 | `Mjlab-MixedGaits-Flat-Pupper-v3` / `-Bumpy-` | Per-command reference switching with a separate fast branch above 0.5 m/s. What plays in the fast branch is up to you — see the optional reference lab. |
 | `Mjlab-Mystery-Flat-Pupper-v3` / `-Bumpy-` | ??? |
+| `Mjlab-SpiderWalk-Flat-Pupper-v3` | Walking in the spider stance (torso 1 cm up, legs splayed): velocity tracking plus the `spider` reference gait, a trot in place. The walking half of lab 6's spider trick. |
 | `Mjlab-Tracking-Flat-Pupper-v3` | Tricks: tracks one reference motion (root pose + joints, BeyondMimic-style) with no velocity command. Design motions and replay them in sim first; see `src/mjlab/tasks/tracking/config/pupper/README.md`. |
 
 **The lift gait is yours**: only the trot reference ships

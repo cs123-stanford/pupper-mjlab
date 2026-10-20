@@ -185,7 +185,11 @@ def gait_reference_metadata(env) -> dict[str, Any]:
     fast = trot
   else:
     fast_gait = "gallop" if kind == "single" else "reach"
-    trot = _reference_table(env, n_samples, "trot").detach().cpu().numpy()
+    # The slow slot plays the task's own gait (the trot, or the spider's).
+    slow_gait = env.observation_manager.get_term_cfg("actor", "policy").params.get(
+      "gait", "trot"
+    )
+    trot = _reference_table(env, n_samples, slow_gait).detach().cpu().numpy()
     fast = _reference_table(env, n_samples, fast_gait).detach().cpu().numpy()
   # Recorded for auditability: the tables are shipped post-clamp, so the robot
   # tracks exactly the reference the policy was trained against.
