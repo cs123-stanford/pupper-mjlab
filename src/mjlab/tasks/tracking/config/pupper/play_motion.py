@@ -12,10 +12,15 @@ a candidate for training with Mjlab-Tracking-Flat-Pupper-v3.
 
     # watch it: the robot plus a translucent ghost of the reference
     uv run python -m mjlab.tasks.tracking.config.pupper.play_motion motion.npz --viewer viser
-    uv run python -m mjlab.tasks.tracking.config.pupper.play_motion motion.npz --viewer viser --share
+    uv run python -m mjlab.tasks.tracking.config.pupper.play_motion motion.npz --viewer viser --share True
 
     # the reference alone, no physics (the robot is placed on each frame)
-    ... motion.npz --no-physics --viewer viser
+    ... motion.npz --no-physics True --viewer viser
+
+    # a heavier robot (a payload: every link's mass and inertia x1.3)
+    ... motion.npz --mass-scale 1.3
+    # the torso's center of mass 2 cm to the left (a battery or camera off-centre)
+    ... motion.npz --com-y 0.02
 
     # a trained tracking policy instead of plain replay, scored the same way
     ... motion.npz --checkpoint logs/rsl_rl/pupper_tracking/<run>/model_3000.pt
@@ -50,7 +55,16 @@ def main(
   no_physics: bool = False,
   loops: int = 1,
   checkpoint: Path | None = None,
+  mass_scale: float = 1.0,
+  com_x: float = 0.0,
+  com_y: float = 0.0,
+  com_z: float = 0.0,
 ) -> None:
+  """mass_scale scales every link's mass and inertia (1.3: 30% heavier, like a
+  payload); com_x, com_y, com_z move the torso's center of mass (x forward,
+  y left, z up, in m). Trick policies train on mass x0.9-1.3 and a center of mass up to
+  1 cm off; plain replay was never adjusted to any of it. Everything else is the
+  nominal robot, so a verdict is repeatable."""
   from mjlab.envs import ManagerBasedRlEnv
   from mjlab.rl import RslRlVecEnvWrapper
   from mjlab.tasks.tracking.config.pupper.env_cfgs import pupper_tracking_env_cfg
@@ -60,6 +74,15 @@ def main(
   cfg = pupper_tracking_env_cfg(motion_file=str(motion_file.resolve()), play=True)
   cfg.scene.num_envs = 1
   cfg.terminations = {}  # watch the whole motion even if it goes wrong
+  # The nominal robot, not a random draw of the training randomization: same
+  # verdict every run. Only the mass/inertia scale is applied (exactly).
+  for name in ("encoder_bias", "foot_friction", "pd_gains"):
+    cfg.events.pop(name, None)
+  cfg.events["base_com"].params["ranges"] = {
+    i: (d, d) for i, d in enumerate((com_x, com_y, com_z))
+  }
+  alpha = math.log(mass_scale) / 2  # pseudo_inertia scales mass by exp(2 * alpha)
+  cfg.events["inertial"].params["alpha_range"] = (alpha, alpha)
   articulation = cfg.scene.entities["robot"].articulation
   assert articulation is not None
   actuator = articulation.actuators[0]
