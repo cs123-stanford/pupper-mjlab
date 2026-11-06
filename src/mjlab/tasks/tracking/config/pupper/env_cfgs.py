@@ -79,8 +79,8 @@ TRACKED_BODIES = (
 FOOT_BODIES = ("leg_front_r_3", "leg_front_l_3", "leg_back_r_3", "leg_back_l_3")
 
 
-def get_spec_with_hulls() -> mujoco.MjSpec:
-  """The Pupper model plus convex-hull collision geoms on the torso and legs.
+def get_spec_with_hulls(bodies: tuple[str, ...] = HULL_BODIES) -> mujoco.MjSpec:
+  """The Pupper model plus convex-hull collision geoms on ``bodies``.
 
   Each hull reuses its body's visual mesh (MuJoCo collides meshes as their convex
   hull). contype 0 / conaffinity 1 means a hull only touches things that start
@@ -90,7 +90,7 @@ def get_spec_with_hulls() -> mujoco.MjSpec:
   """
   spec = get_spec()
   meshes = set()
-  for body_name in HULL_BODIES:
+  for body_name in bodies:
     body = spec.body(body_name)
     visual = next(g for g in body.geoms if g.type == mujoco.mjtGeom.mjGEOM_MESH)
     body.add_geom(
