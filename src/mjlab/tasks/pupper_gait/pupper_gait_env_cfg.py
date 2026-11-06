@@ -11,8 +11,6 @@ from __future__ import annotations
 import dataclasses
 import math
 
-import mujoco
-
 from mjlab.asset_zoo.robots.pupper_v3.pupper_constants import (
   PUPPER_DECIMATION,
   SPIDER_HEIGHT,
@@ -28,10 +26,6 @@ from mjlab.tasks.pupper.pupper_env_cfg import (
   pupper_flat_env_cfg,
 )
 from mjlab.tasks.pupper_gait import mdp
-from mjlab.tasks.tracking.config.pupper.env_cfgs import (
-  HULL_COLLISION,
-  get_spec_with_hulls,
-)
 from mjlab.terrains.config import perlin_noise
 from mjlab.terrains.terrain_generator import TerrainGeneratorCfg
 
@@ -601,16 +595,6 @@ def pupper_velocity_fs_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
   return cfg
 
 
-def get_spec_with_torso_hull() -> mujoco.MjSpec:
-  """The Pupper model plus the tracking task's convex-hull collision geom on the torso.
-
-  The walking tasks collide only through the knee and foot balls. The spider
-  stance holds the belly 1 cm off the ground, so without a torso shape the body
-  sinks through the floor whenever the legs give a little.
-  """
-  return get_spec_with_hulls(bodies=("base_link",))
-
-
 def pupper_spider_walk_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
   """Walk like the recorded spider: torso 1 cm off the ground, legs splayed.
 
@@ -628,10 +612,6 @@ def pupper_spider_walk_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
   cfg = pupper_flat_env_cfg(play=play)
   robot = cfg.scene.entities["robot"]
   robot.init_state = dataclasses.replace(SPIDER_KEYFRAME)
-  # Torso hull vs. ground (contype 0 / conaffinity 1), re-enabled after the
-  # robot's collision config, which disables every geom it doesn't name.
-  robot.spec_fn = get_spec_with_torso_hull
-  robot.collisions = (*robot.collisions, HULL_COLLISION)
   if "base_height" in cfg.rewards:
     cfg.rewards["base_height"].params["target_height"] = SPIDER_HEIGHT
   cfg = _add_gait(
