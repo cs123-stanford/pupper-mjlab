@@ -46,6 +46,7 @@ from mjlab.tasks.pupper.pupper_env_cfg import _inertial_event, _pd_gain_event
 from mjlab.tasks.tracking.mdp import MotionCommandCfg
 from mjlab.tasks.tracking.tracking_env_cfg import make_tracking_env_cfg
 from mjlab.utils.noise import UniformNoiseCfg as Unoise
+from mjlab.utils.spec_config import CollisionCfg
 
 # Bodies that get a convex-hull collision shape, and the vertex cap per hull.
 HULL_BODIES = (
@@ -54,6 +55,20 @@ HULL_BODIES = (
   "leg_front_r_3", "leg_front_l_3", "leg_back_r_3", "leg_back_l_3",
 )  # fmt: skip
 HULL_MAX_VERTICES = 32
+
+# The robot's PUPPER_COLLISION keeps only the ``*_collision`` balls and disables
+# every other geom (disable_other_geoms), which zeroes the hulls' contype and
+# conaffinity. Applied after it, this restores the hulls' contact bits (see
+# get_spec_with_hulls), so the torso and legs touch the ground instead of
+# sinking through it.
+HULL_COLLISION = CollisionCfg(
+  geom_names_expr=(r".*_hull$",),
+  contype=0,
+  conaffinity=1,
+  condim=3,
+  friction=(0.8, 0.02, 0.01),
+  disable_other_geoms=False,
+)
 
 # Bodies the tracking reward compares against the reference.
 TRACKED_BODIES = (
@@ -109,6 +124,7 @@ def pupper_tracking_env_cfg(
 
   robot = get_pupper_robot_cfg()
   robot.spec_fn = get_spec_with_hulls
+  robot.collisions = (*robot.collisions, HULL_COLLISION)
   # Fixed actuator delay (see pupper_env_cfg.py). Replace the articulation rather
   # than mutating it: it is a shared module-level object.
   assert robot.articulation is not None
